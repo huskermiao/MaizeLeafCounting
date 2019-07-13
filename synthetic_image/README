@@ -1,0 +1,31 @@
+Maize rendering code is provided as an example and to aid repeatability, but is not intended for broad reuse without extensive modification.
+
+Depends on Blender
+
+batchscript.py 
+
+Batchscript reads in a set of 3D meshes of plants in 3DS format, and a set of background scenes, camera angles, and lighting in blender format, and farms each combination out to be rendered into a 2D image in Blender using Blender's command line python scripting API.
+
+Reconfiguration requires:
+
+1) modifying line 4 to point to a directory containing 3DS formated mesh models of plants created by Plant Factory Exporter.
+2) Modifying line 10 to parse the naming format used for these 3DS images and define mynum as a string with the unique identifier portion of each name.
+3) Modifying line 11 to loop a number of times equal to the number of distinct camera angles being simulated.
+4) Modifying lines 13 and 15 to point to a director with one .blend formated 3D scene (including background objects, camera, and lighting position) for each angle.
+5) Also modifying "render_script_v3.py" (see belwo.
+
+render_script_v3.py
+
+render_script_v3 is run within Blender's command line python API. It depends on a set of variables in a configuration file written by batchscript.py and is not intended to be run independently. 
+
+Reconfiguration requires:
+
+
+Define the range of color space that plant tissue should appear by modifying lines 28-37 to define colors in the HSV colorspace. 
+Lines 28, 31, 35 define centers and standard deviations for hue, saturation, and value respectively. 
+Lines 29-30, 32-33, and 36-37 define absolute limits for hue, saturation, and value respectively. 
+
+Line 52 can be modified to grow or shrink the original 3D plant model on the x, y, and z axes. 
+
+Line 98 must be modified to point to the directory where the user wishes the new 2D renders to be saved. 
+

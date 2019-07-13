@@ -1,5 +1,5 @@
 """
-train neural network to detect whether plant flowers or not
+train neural network to estimate leaf number in a maize photo
 """
 from glob import glob
 import numpy as np
@@ -66,4 +66,4 @@ def train(train_dir, label_fn, model_name, tsrbrd_dir, epoch, split_ratio, lr):
 if len(sys.argv)==8:
     train(*sys.argv[1:])
 else:
-    print('train_dir', 'label_fn', 'model_name', "tensorboard_dir", 'epoch', 'split_ratio', 'lr')
+    print('python LeafCount_Train.py train_dir, label_fn, model_name, tensorboard_dir, epoch, split_ratio, lr')

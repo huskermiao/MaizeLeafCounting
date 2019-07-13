@@ -1,5 +1,5 @@
 """
-make predictions using trained model based on deep plant phenomics pakcage
+make predictions on new testing images using trained model
 """
 import numpy as np
 from pathlib import Path
@@ -8,7 +8,6 @@ import os
 
 class CornLeafRegressor(object):
     model = None
-    # TODO: Convert images to 256 or convert these vars to the image dims?
     img_height = 256
     img_width = 256
 
@@ -60,4 +59,4 @@ import sys
 if len(sys.argv)==4:
     predict(*sys.argv[1:])
 else:
-    print('model_dir, testing_dir, output_fn')
+    print('python LeafCount_Predict.py model_dir, testing_dir, output_fn')

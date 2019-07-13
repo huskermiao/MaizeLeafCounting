@@ -1,0 +1,25 @@
+This folder contains two scripts. One for training leaf counting models the other one for making predictions on new testing images.
+`deepplantphenomics` package must be installed before starting to use these two scripts. 
+Check this link to install `deepplantphenomics` (https://github.com/p2irc/deepplantphenomics)
+
+LeafCount_Train.py
+  Parameters:
+    train_dir: the directory where your training images located
+    label_fn: the file name of labels under train_dir. Just specify the file name don't include the path. 
+    model_name: Trained model will be save to the directory with this name
+    tsrbrd_dir: directory to save the tensorboard results.
+    epoch: specify the epoch. Based on dpp document suggest 500 for leaf counting problem.
+    split_ratio: the ration of validation images and testing images.
+    lr: specify learnning rate.
+
+  Example:
+    python LeafCount_Train.py training_dir labels.csv maize_leaf_count maize_leaf_count_tensor 500 0.1 0.0001
+
+LeafCount_Predict.py
+  Parameters:
+    model_dir: the dir where the trained model located
+    testing_dir: the dir where the new testing images are
+    output_fn: file name of the prediction results
+
+  Example:
+    python LeafCount_Predict.py maize_leaf_count/saved_state maize_testing_images predict.csv

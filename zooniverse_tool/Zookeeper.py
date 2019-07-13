@@ -3,7 +3,7 @@ schnablelab CLI tool
 Calls Zookeeper class
 '''
 
-from schnablelab.apps.base import ActionDispatcher, OptionParser
+from base import ActionDispatcher, OptionParser
 import sys
 
 def main():
@@ -98,10 +98,10 @@ def manifest(args):
     p = OptionParser(manifest.__doc__)
     opts, args = p.parse_args(args)
 
-    if len(args) != 1:
+    if len(sys.argv) != 1:
         exit(not p.print_help())
 
-    imgdir = args[0]
+    imgdir = args[1]
 
     mani(imgdir)
 
