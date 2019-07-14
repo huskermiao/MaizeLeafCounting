@@ -20,14 +20,13 @@ except ImportError:
 
 log = logging.getLogger(__file__)
 log.setLevel(logging.DEBUG)
-log.addHandler(logging.FileHandler(osp.abspath(__file__) + ".log"))
-log.info('### EXECUTION' + dt.now().isoformat() + ' ###')
+log.addHandler(logging.FileHandler(osp.join(osp.dirname(osp.abspath(__file__)), "log")))
+log.info('### EXECUTION TIME: ' + dt.now().isoformat() + ' ###')
 log.addHandler(logging.StreamHandler())
 
-               
-def upload(imgdir, projid, opts, **kwargs):
+
+def upload(imgdir, projid, subject, quiet):
     '''
-    %prog upload imgdir zoo_proj_id
     Does:
         - Uploads images from the specified image directory to zooniverse
           project specified by zoo_project_id.
@@ -42,11 +41,17 @@ def upload(imgdir, projid, opts, **kwargs):
         - proj_id
             -type: str
             -desc: The zooniverse project id to upload the images to.
+        - subject
+            -type: str
+            -desc: the subject set id number of an already existing subject set
+        - quiet
+            -type: bool
+            -desc: sets verbosity of upload
     Returns:
         None
     '''
 
-    if opts.quiet:
+    if quiet:
         log.setLevel(logging.INFO)
 
     if not osp.isdir(imgdir):
@@ -58,9 +63,9 @@ def upload(imgdir, projid, opts, **kwargs):
     except PanoptesAPIException:
         return False
 
-    if opts.subject:
+    if subject:
         try:
-            subject_set = pan.SubjectSet.find(opts.subject)
+            subject_set = pan.SubjectSet.find(subject)
         except PanoptesAPIException as e:
             log.error("Could not find subject set id")
             for arg in e.args:
@@ -93,25 +98,11 @@ def upload(imgdir, projid, opts, **kwargs):
                 continue
 
             break
-
-    # NOTE: This would need to be cross-platform and efficient
-    #       I am removing this feature and leaving file compression to
-    #       the user.
-    '''
-    if opts.convert:
-        log.info("Compressing and converting to jpg")
-        log.critical("Warning: All jpg files will be overwritten.")
-
-        if utils.get_yn("Continue?"):
-            utils.convert(imgdir)
-    '''
-
+    
     if not osp.isfile(osp.join(imgdir, 'manifest.csv')):
         log.info("Generating manifest")
-        if opts.extension:
-            manif_gen_succeeded = manifest(imgdir, ext=opts.extension)
-        else:
-            manif_gen_succeeded = manifest(imgdir)
+        manif_gen_succeeded = manifest(imgdir)
+
         if not manif_gen_succeeded:
             log.error("No images to upload.")
             return False
@@ -139,7 +130,7 @@ def upload(imgdir, projid, opts, **kwargs):
                          .format(filesize))
 
             temp_subj = pan.Subject()
-            temp_subj.add_location(row['filename'])
+            temp_subj.add_location(osp.join(imgdir, row['filename']))
             temp_subj.metadata.update(row)
             temp_subj.links.project = project
             temp_subj.save()
@@ -175,7 +166,7 @@ def upload(imgdir, projid, opts, **kwargs):
     return True
 
 
-def manifest(imgdir, ext=None):
+def manifest(imgdir):
     '''
     Does:
         - Generates a generic manifest in the specified image directory.
@@ -185,13 +176,11 @@ def manifest(imgdir, ext=None):
     Args
         - imgdir: str
             -desc: image directory for which to generate manifest
-        - ext: str
-            -desc: File extension of images for which to generate the manifest
     Returns:
         None
 
     Notes:
-        - Default supported image types: [ tiff, jpg, png ] - can specify any
+        - Default supported image types: [ tiff, jpg, jpeg, png ] - can specify any
     '''
     if not osp.isdir(imgdir):
         log.error("Image directory " + imgdir + " does not exist")
@@ -204,16 +193,13 @@ def manifest(imgdir, ext=None):
 
     idtag = dt.now().strftime("%m%d%y-%H%M%S")
 
-    if not ext:
-        PATTERN = re.compile(r".*\.(jpg|png|tiff)")
-    else:
-        PATTERN = re.compile(r".*\.{}".format(opts.extension))
+    PATTERN = re.compile(r".*\.(jpg|jpeg|png|tiff)")
 
     img_c = 0
     for id, filename in enumerate(os.listdir(imgdir)):
         if PATTERN.match(filename):
             writer.writerow(["{}-{:04d}".format(idtag, id),
-                             osp.join(imgdir, filename)])
+                             osp.basename(filename)])
             img_c += 1
         if img_c == 999:
             log.warning("Zooniverse's default limit of subjects per"
@@ -225,7 +211,7 @@ def manifest(imgdir, ext=None):
     if img_c == 0:
         log.error("Could not generate manifest.")
         log.error("No images found in " + imgdir + " with file extension:"
-                  + (opts.extension if opt.extension else "[jpg,png,tiff]"))
+                  + (extension if extension else "[jpg,jpeg,png,tiff]"))
         return False
     else:
         log.info("DONE: {} subjects written to manifest"
@@ -235,7 +221,7 @@ def manifest(imgdir, ext=None):
     return True
 
 
-def export(projid, outfile, opts):
+def export(projid, outfile, exp_type, no_generate):
     '''
     %prog export project_id output_dir
 
@@ -249,6 +235,12 @@ def export(projid, outfile, opts):
         - output_dir
             -type: str
             -desc: Path to the image directory with images to be uploaded
+        - exp_type
+            -type: str
+            -desc: The type of export to fetch
+        - no_generate
+            -type: bool
+            -desc: whether to avoid generating a new export to get an already generated one
     Returns:
         None
     '''
@@ -256,12 +248,10 @@ def export(projid, outfile, opts):
     project = utils.connect(projid)
 
     try:
-        log.info("Getting export, this may take a lot of time.")
-        export = project.get_export(opts.type)
-
-        # TODO: this line should also generate an existing report
-        # but the report never downloads and goes into an infinite loop
-        # export = project.get_export(opts.type, generate=True)
+        log.info("Getting export.")
+        if not no_generate:
+            log.info("Generating new export. This can take a while sometimes")
+        export = project.get_export(exp_type, generate=not no_generate)
 
         with open(outfile, 'w') as zoof:
             zoof.write(export.text)
@@ -276,26 +266,7 @@ def export(projid, outfile, opts):
 
 
 class utils:
-    def convert(imgdir, ext=None):
-        ''' Image compression and conversion to jpg '''
-
-        cmd = ["mogrify", "-strip", "-quality", "85%", "-format", "jpg"]
-        try:
-            if ext:
-                cmd = cmd.append("*." + ext)
-            else:
-                cmd.append([osp.join(imgdir, "*.jpg"),
-                            osp.join(imgdir, "*.png"),
-                            osp.join(imgdir, "*.tiff")])
-            proc_ret = run(cmd, shell=bash)
-        except CalledProcessError as e:
-            log.error("Failed to compress images")
-            pprint(e)
-
-        pprint(proc_ret)
-        return True
-
-
+    
     def connect(projid, **kwargs):
         ''' Override of panoptes connect method '''
 
