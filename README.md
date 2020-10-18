@@ -1,8 +1,7 @@
 This Git Repo collects Python scripts used in the maize leaf counting paper
 
-Total three folders in this repo:
-- **zooniverse_tool**: including scripts for uploading images to and downloading annotation results from Zooniverse crowdsourcing platform. 
-- **synthetic_image**: including scripts used to generate the synthetic maize images
-- **cnn_model**: CNN training and prediction scripts for the leaf counting problem 
+- **CNNs**: python scripts and example data for training and evaluating CNN models on leaf counting.
+- **LeafTipDetection**: python scripts and example data for training and evaluating Faster-RCNN models on leaf tip detections
+- **zooniverse_tool**: python scripts for uploading images to and downloading annotation results from Zooniverse. 
 
 Please contact Chenyong Miao (cmiao@huskers.unl.edu) if you have any questions when using these scripts. 
