@@ -1,15 +1,12 @@
 import os
 import copy
 from PIL import Image
-
 import torch
 import torch.utils.data
 import torchvision
-
 from pycocotools.coco import COCO
 from pycocotools import mask as coco_mask
-
-import J2ME.detecto.transforms as T
+from base import Compose
 
 
 class FilterAndRemapCocoCategories(object):
@@ -190,7 +187,6 @@ def convert_to_coco_api(ds):
     coco_ds.createIndex()
     return coco_ds
 
-
 def get_coco_api_from_dataset(dataset):
     for _ in range(10):
         if isinstance(dataset, torchvision.datasets.CocoDetection):
@@ -200,7 +196,6 @@ def get_coco_api_from_dataset(dataset):
     if isinstance(dataset, torchvision.datasets.CocoDetection):
         return dataset.coco
     return convert_to_coco_api(dataset)
-
 
 class CocoDetection(torchvision.datasets.CocoDetection):
     def __init__(self, img_folder, ann_file, transforms):
@@ -215,7 +210,6 @@ class CocoDetection(torchvision.datasets.CocoDetection):
             img, target = self._transforms(img, target)
         return img, target
 
-
 def get_coco(root, image_set, transforms, mode='instances'):
     anno_file_template = "{}_{}2017.json"
     PATHS = {
@@ -228,7 +222,7 @@ def get_coco(root, image_set, transforms, mode='instances'):
 
     if transforms is not None:
         t.append(transforms)
-    transforms = T.Compose(t)
+    transforms = Compose(t)
 
     img_folder, ann_file = PATHS[image_set]
     img_folder = os.path.join(root, img_folder)
@@ -242,7 +236,6 @@ def get_coco(root, image_set, transforms, mode='instances'):
     # dataset = torch.utils.data.Subset(dataset, [i for i in range(500)])
 
     return dataset
-
 
 def get_coco_kp(root, image_set, transforms):
     return get_coco(root, image_set, transforms, mode="person_keypoints")

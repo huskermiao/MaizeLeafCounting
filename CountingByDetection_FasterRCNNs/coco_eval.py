@@ -9,8 +9,8 @@ from collections import defaultdict
 import pycocotools.mask as mask_util
 from pycocotools.coco import COCO
 
-from J2ME.detecto.cocoeval import COCOeval # make sure using the 2.0.1 version
-import J2ME.detecto.utils as utils
+from cocoeval import COCOeval # make sure using the 2.0.1 version
+import utils
 
 
 class CocoEvaluator(object):

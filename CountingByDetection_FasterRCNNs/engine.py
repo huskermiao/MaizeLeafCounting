@@ -3,13 +3,15 @@ import sys
 import time
 import torch
 import torchvision
+import pandas as pd
+import networkx 
+from networkx.algorithms.components.connected import connected_components
 
 import utils
 from coco_utils import get_coco_api_from_dataset
 from coco_eval import CocoEvaluator
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
-
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -19,26 +21,19 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
     if epoch == 0:
         warmup_factor = 1. / 1000
         warmup_iters = min(1000, len(data_loader) - 1)
-
         lr_scheduler = utils.warmup_lr_scheduler(optimizer, warmup_iters, warmup_factor)
 
     for images, targets, _ in metric_logger.log_every(data_loader, print_freq, header):
         images = list(image.to(device) for image in images)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
-
         loss_dict = model(images, targets)
-
         losses = sum(loss for loss in loss_dict.values())
-
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = utils.reduce_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
-
         loss_value = losses_reduced.item()
-
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
-            print(loss_dict_reduced)
             sys.exit(1)
 
         optimizer.zero_grad()
@@ -47,12 +42,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
 
         if lr_scheduler is not None:
             lr_scheduler.step()
-
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-
-    return metric_logger
-
+    return loss_dict_reduced, losses_reduced
 
 def _get_iou_types(model):
     model_without_ddp = model
@@ -64,7 +56,6 @@ def _get_iou_types(model):
     if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
         iou_types.append("keypoints")
     return iou_types
-
 
 @torch.no_grad()
 def evaluate(model, data_loader, device):
@@ -106,3 +97,63 @@ def evaluate(model, data_loader, device):
     coco_evaluator.summarize()
     torch.set_num_threads(n_threads)
     return coco_evaluator
+
+def _area(a, b):  # returns None if rectangles don't intersect
+    '''
+    return intersect area of two boxes if overlaping otherwise return None
+    '''
+    dx = min(a.x1, b.x1) - max(a.x0, b.x0)
+    dy = min(a.y1, b.y1) - max(a.y0, b.y0)
+    if (dx>=0) and (dy>=0):
+        return dx*dy
+
+def _to_graph(l):
+    G = networkx.Graph()
+    for part in l:
+        # each sublist is a bunch of nodes
+        G.add_nodes_from(part)
+        # it also imlies a number of edges:
+        G.add_edges_from(_to_edges(part))
+    return G
+
+def _to_edges(l):
+    """ 
+        treat `l` as a Graph and returns it's edges 
+        to_edges(['a','b','c','d']) -> [(a,b), (b,c),(c,d)]
+    """
+    it = iter(l)
+    last = next(it)
+    for current in it:
+        yield last, current
+        last = current 
+
+def idx_cleanboxes(boxes, scores, second_cutoff=0.83):
+    '''
+    boxes: 2d npy containing all boxes in the image
+    socres: 1d npy containing score for each box in boxes
+    '''
+    df = pd.DataFrame(boxes)
+    df.columns = ['x0', 'y0', 'x1', 'y1']
+    df['score'] = scores
+
+    clusters = []
+    for box1 in df.itertuples():
+        cluster = {box1.Index}
+        df2 = df.iloc[box1.Index+1:, :]
+        for box2 in df2.itertuples():
+            if _area(box1, box2):
+                cluster.add(box2.Index)
+        clusters.append(cluster)
+    G = _to_graph(clusters)
+
+    final_index = []
+    for c in connected_components(G):
+        c = list(c)
+        scores = df.loc[c, 'score']
+        cdas = scores[scores>=second_cutoff]
+        cdas_idx = cdas.index.to_list()
+        if len(cdas_idx)>0:
+            final_index.extend(cdas_idx)
+        else:
+            final_index.append(scores.idxmax())
+    return final_index

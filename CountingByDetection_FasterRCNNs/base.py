@@ -3,6 +3,7 @@ import json
 import torch
 import random
 import pandas as pd
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 import torchvision
@@ -13,6 +14,12 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 font_dir = Path(__file__).parent.absolute()
 c_dict = {1:'#e41a1c', 2:'#377eb8', 3:'#984ea3', 4:'#ff7f00', 5:'#f781bf'}
 
+def get_transform(train):
+    transforms = []
+    transforms.append(ToTensor())
+    if train:
+        transforms.append(RandomHorizontalFlip(0.5))
+    return Compose(transforms)
 
 def show_box(img_fn, boxes, labels, scores):
     
@@ -92,7 +99,7 @@ class ToTensor(object):
         return image, target
 
 class ObjectDetectionDataset(Dataset):
-    def __init__(self, csv_fn, root_dir, transforms, only_image=False):
+    def __init__(self, csv_fn, root_dir, transforms, sep='\t', only_image=False):
         '''
         csv_fn: tab separated csv file with:
             1st column('fn'): image file name
@@ -100,13 +107,14 @@ class ObjectDetectionDataset(Dataset):
         root_dir:
             where the images in csv file are located
         '''
-        self.csv_df = pd.read_csv(csv_fn, sep='\t')
+        self.csv_df = pd.read_csv(csv_fn, sep=sep)
         if only_image:
             if 'fn' not in self.csv_df.columns:
                 sys.exit("Couldn't find 'fn' in the csv header.")
         else:
             if 'fn' not in self.csv_df.columns or 'targets' not in self.csv_df.columns:
                 sys.exit("Couldn't find 'fn' and 'targets' in the csv header.")
+
         self.root_dir = Path(root_dir)
         self.transforms = transforms
         self.only_image = only_image
@@ -115,10 +123,12 @@ class ObjectDetectionDataset(Dataset):
         return len(self.csv_df)
 
     def __getitem__(self, idx):
+        #print(f'idx: {idx}')
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
+        
         img_fn = self.csv_df.loc[idx, 'fn']
+        #print(f'img_fn: {img_fn}')
         img = Image.open(self.root_dir/img_fn)
         target = {}
         if len(img.getbands()) == 4:
@@ -129,7 +139,9 @@ class ObjectDetectionDataset(Dataset):
                 img, target = self.transforms(img, target)
             return img, target, img_fn
 
+        # map each label to a class with name started from 1
         tips = json.loads(self.csv_df.loc[idx, 'targets'])
+        #print(tips)
         label_dict = {'intact':1, 'cut':2}
 
         boxes, labels = [], []
@@ -140,13 +152,62 @@ class ObjectDetectionDataset(Dataset):
         labels = torch.tensor(labels)
         areas = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
         image_id = torch.tensor([idx])
+        # zeros: False, ones: True (will not be used in evaluation)
         iscrowd = torch.zeros((len(boxes),), dtype=torch.int64)
+        #print(boxes.size(), labels.size(), image_id.size(), areas.size(), iscrowd.size())
 
         target["boxes"] = boxes
         target["labels"] = labels
         target["image_id"] = image_id
         target["area"] = areas
         target["iscrowd"] = iscrowd
+
         if self.transforms is not None:
             img, target = self.transforms(img, target)
+
         return img, target , img_fn
+
+class EarlyStopping:
+    """Early stops the training if validation loss doesn't improve after a given patience."""
+    def __init__(self, mn_prefix, patience=20, verbose=True, delta=0):
+        """
+        Args:
+            mn_prefix (str): the prefix of the saved model name.
+            patience (int): How long to wait after last time validation loss improved.
+                            Default: 20
+            verbose (bool): If True, prints a message for each validation loss improvement. 
+                            Default: True
+            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
+                            Default: 0
+        """
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_score = None
+        self.early_stop = False
+        self.val_loss_min = np.Inf
+        self.delta = delta
+        self.mn_prefix = mn_prefix
+
+    def __call__(self, val_loss, model):
+        score = -val_loss
+
+        if self.best_score is None: # the first epoch
+            self.best_score = score
+            self.save_checkpoint(val_loss, model)
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.save_checkpoint(val_loss, model)
+            self.counter = 0
+
+    def save_checkpoint(self, val_loss, model):
+        '''Saves model when validation loss decrease.'''
+        if self.verbose:
+            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
+        torch.save(model.state_dict(), '%s.pt'%self.mn_prefix)
+        self.val_loss_min = val_loss
