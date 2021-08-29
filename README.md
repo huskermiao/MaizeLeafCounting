@@ -9,4 +9,4 @@ In order to run these python scripts, you need to install the dependent packages
 Please contact Chenyong Miao (cmiao@huskers.unl.edu) if you have any questions when using these scripts. 
 
 Citations:
-Miao, Chenyong, Alice Guo, Addie M. Thompson, Jinliang Yang, Yufeng Ge, and James C. Schnable. "Automation of Leaf Counting in Maize and Sorghum Using Deep Learning." The Plant Phenome Journal (2021) doi: https://doi.org/10.1002/ppj2.20022
+- Miao, Chenyong, Alice Guo, Addie M. Thompson, Jinliang Yang, Yufeng Ge, and James C. Schnable. "Automation of Leaf Counting in Maize and Sorghum Using Deep Learning." The Plant Phenome Journal (2021) doi: https://doi.org/10.1002/ppj2.20022
