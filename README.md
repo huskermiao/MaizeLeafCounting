@@ -9,5 +9,4 @@ In order to run these python scripts, you need to install the dependent packages
 Please contact Chenyong Miao (cmiao@huskers.unl.edu) if you have any questions when using these scripts. 
 
 Citations:
-- Miao, C., Guo, A., Yang, J., Ge, Y., & Schnable, J. C. (2020). Automation of Leaf Counting in Maize and Sorghum Using Deep Learning. bioRxiv. doi: https://doi.org/10.1101/2020.12.19.423626
-- Miao, C., Hoban, T. P., Pages, A., Xu, Z., Rodene, E., Ubbens, J., ... & Schnable, J. C. (2019). Simulated plant images improve maize leaf counting accuracy. bioRxiv. doi: https://doi.org/10.1101/706994
+Miao, Chenyong, Alice Guo, Addie M. Thompson, Jinliang Yang, Yufeng Ge, and James C. Schnable. "Automation of Leaf Counting in Maize and Sorghum Using Deep Learning." The Plant Phenome Journal (2021) doi: https://doi.org/10.1002/ppj2.20022
