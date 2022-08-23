@@ -40,7 +40,7 @@ matplotlib==3.3.3
 mccabe==0.6.1
 mistune==0.8.4
 nbclient==0.5.1
-nbconvert==6.0.7
+nbconvert==6.5.1
 nbformat==5.0.8
 nest-asyncio==1.4.3
 networkx==2.5
